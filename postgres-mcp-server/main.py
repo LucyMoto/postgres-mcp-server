@@ -5,7 +5,10 @@ from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 # Initializes your MCP server instance. It's used to register your tools.
 mcp = FastMCP("postgres-server")
@@ -19,19 +22,30 @@ DB_CONFIG = {
     "port": os.getenv("DB_PORT", "5432"),
 }
 
-# TODO: Implement a second MCP tool called `execute_sql`
-# This function should:
-#  - Take a SQL query as input (string)
-#  - Run the query against the Postgres database
-#  - Return the rows as a list of dictionaries (column_name → value)
-# Hint: Use the same psycopg2 connection pattern shown in `get_schema`.
+@mcp.tool()
+async def execute_sql(query: str) -> List[Dict]:
+    """Execute a SQL query against the PostgreSQL database and return rows as a list of dictionaries (column name → value)"""
+    with psycopg2.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query)
+            column_names = [desc[0] for desc in cur.description]
+            rows = [dict(zip(column_names, row)) for row in cur.fetchall()]
+    return rows
 
-
-# TODO: Implement a third MCP tool called `list_tables`
-# This function should:
-#  - Take no inputs
-#  - Return the list of table names available in the current database
-# Hint: Query `information_schema.tables` and filter for `table_schema = 'public'`.
+@mcp.tool()
+async def list_tables() -> List[str]:
+    """Return the list of table names available in the current database"""
+    sql = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        """
+    
+    with psycopg2.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            rows = [row[0] for row in cur.fetchall()]
+    return rows
 
 @mcp.tool()
 async def get_schema(table: str) -> List[Dict]:
@@ -53,3 +67,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# run with
+# cd C:\Users\lucyq\Documents\Futureproof\module-2-mcp\postgres-mcp-server
+# npx @modelcontextprotocol/inspector poetry run python postgres-mcp-server/main.py
