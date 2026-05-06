@@ -308,6 +308,57 @@ async def validate_query(query: str) -> Dict:
     except Exception as e:
         return {"valid": False, "error": str(e), "safe": False}
 
+@mcp.tool()
+async def estimate_query_cost(query: str) -> Dict:
+    """Estimate query cost and performance WITHOUT executing the full query"""
+    try:
+        with psycopg2.connect(**DB_CONFIG) as conn:
+            with conn.cursor() as cur:
+                # Use EXPLAIN to get estimates
+                explain_query = f"EXPLAIN {query}"
+                cur.execute(explain_query)
+                explain_output = cur.fetchall()
+        
+        # Parse EXPLAIN output
+        output_text = "\n".join([row[0] for row in explain_output])
+        
+        # Extract key metrics
+        estimated_rows = None
+        estimated_cost = None
+        
+        for line in output_text.split("\n"):
+            if "rows=" in line:
+                try:
+                    estimated_rows = int(line.split("rows=")[1].split()[0])
+                except:
+                    pass
+            if "cost=" in line:
+                try:
+                    costs = line.split("cost=")[1].split()[0].split("..")
+                    estimated_cost = float(costs[-1]) if len(costs) > 1 else float(costs[0])
+                except:
+                    pass
+        
+        return {
+            "valid": True,
+            "estimated_rows": estimated_rows,
+            "estimated_cost": estimated_cost,
+            "safe_to_run": (estimated_rows or 0) < 10000000,  # > 10M rows is risky
+            "explain_output": output_text
+        }
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+    
+
+
+
+
+
+
+
+
+
+
 
 
 
