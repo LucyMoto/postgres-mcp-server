@@ -162,6 +162,42 @@ async def get_table_description(table: str) -> Dict:
         "columns": columns
     }
 
+@mcp.tool()
+async def get_table_stats(table: str) -> Dict:
+    """Return row count, table size, and column null counts"""
+    sql_query = """
+        SELECT 
+            (SELECT COUNT(*) FROM {table}) as row_count,
+            pg_size_pretty(pg_total_relation_size('public.' || %s)) as size
+    """
+    
+    with psycopg2.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cur:
+            # Get row count and size
+            cur.execute(sql_query.format(table=table), (table,))
+            row_count, size = cur.fetchone()
+            
+            # Get null counts per column
+            schema = await get_schema(table)
+            null_counts = {}
+            for col_info in schema:
+                col = col_info["column"]
+                null_query = f"SELECT COUNT(*) FROM {table} WHERE {col} IS NULL"
+                cur.execute(null_query)
+                null_count = cur.fetchone()[0]
+                null_percentage = round((null_count / row_count * 100), 2) if row_count > 0 else 0
+                null_counts[col] = {
+                    "null_count": null_count,
+                    "null_percentage": null_percentage
+                }
+    
+    return {
+        "table": table,
+        "row_count": row_count,
+        "size": size,
+        "column_null_counts": null_counts
+    }
+
 
 
 
