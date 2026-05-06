@@ -2,7 +2,7 @@
 name = "postgres-mcp-server"
 version = "0.1.0"
 description = "PostgreSQL MCP Server for database operations"
-authors = ["Andres Vourakis"]
+authors = ["Andres Vourakis, Lucy Michaels"]
 readme = "README.md"
 package-mode = false
 
@@ -11,6 +11,7 @@ python = ">=3.10,<3.14"
 psycopg2-binary = "^2.9.10"
 mcp = "^1.16.0"
 python-dotenv = "^1.1.1"
+sqlparse = "^0.4.4"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
