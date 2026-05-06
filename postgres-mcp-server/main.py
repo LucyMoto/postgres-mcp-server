@@ -198,7 +198,38 @@ async def get_table_stats(table: str) -> Dict:
         "column_null_counts": null_counts
     }
 
-
+@mcp.tool()
+async def get_table_relationships() -> List[Dict]:
+    """Return all foreign key relationships in the database"""
+    sql_query = """
+        SELECT 
+            tc.table_name,
+            kcu.column_name,
+            ccu.table_name AS foreign_table_name,
+            ccu.column_name AS foreign_column_name
+        FROM information_schema.table_constraints AS tc
+        JOIN information_schema.key_column_usage AS kcu
+            ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage AS ccu
+            ON ccu.constraint_name = tc.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = 'public'
+        ORDER BY tc.table_name, kcu.column_name
+    """
+    
+    with psycopg2.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql_query)
+            relationships = [
+                {
+                    "from_table": row[0],
+                    "from_column": row[1],
+                    "to_table": row[2],
+                    "to_column": row[3]
+                }
+                for row in cur.fetchall()
+            ]
+    return relationships
 
 
 
