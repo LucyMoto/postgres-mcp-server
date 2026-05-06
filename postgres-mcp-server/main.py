@@ -231,6 +231,84 @@ async def get_table_relationships() -> List[Dict]:
             ]
     return relationships
 
+@mcp.tool()
+async def get_table_last_modified(table: str) -> Dict:
+    """Return when table was last written to (insert/update/delete)"""
+    # Simpler approach: use n_live_tup and n_tup_ins + n_tup_upd + n_tup_del
+    simple_query = """
+        SELECT 
+            last_vacuum,
+            last_autovacuum,
+            last_analyze,
+            last_autoanalyze,
+            n_live_tup as live_rows,
+            n_tup_ins + n_tup_upd + n_tup_del as total_changes
+        FROM pg_stat_user_tables
+        WHERE schemaname = 'public'
+        AND relname = %s
+    """
+    
+    with psycopg2.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cur:
+            cur.execute(simple_query, (table,))
+            row = cur.fetchone()
+            
+            if not row:
+                return {"table": table, "error": "Table not found or has no stats"}
+            
+            return {
+                "table": table,
+                "last_vacuum": str(row[0]) if row[0] else "Never",
+                "last_autovacuum": str(row[1]) if row[1] else "Never",
+                "last_analyze": str(row[2]) if row[2] else "Never",
+                "last_autoanalyze": str(row[3]) if row[3] else "Never",
+                "live_rows": row[4],
+                "total_changes_since_analyze": row[5]
+            }
+
+# ========================
+# QUERY ANALYSIS TOOLS
+# ========================
+
+@mcp.tool()
+async def validate_query(query: str) -> Dict:
+    """Check if a query is syntactically valid and safe WITHOUT executing it"""
+    try:
+        # Parse SQL for syntax
+        parsed = sqlparse.parse(query)
+        if not parsed:
+            return {"valid": False, "error": "Could not parse query"}
+        
+        # Check for dangerous operations
+        query_upper = query.upper().strip()
+        dangerous_keywords = ["DROP", "TRUNCATE", "DELETE", "ALTER", "GRANT", "REVOKE"]
+        
+        is_safe = not any(keyword in query_upper for keyword in dangerous_keywords)
+        
+        # Try a PREPARE (syntax check) without executing
+        with psycopg2.connect(**DB_CONFIG) as conn:
+            with conn.cursor() as cur:
+                try:
+                    explain_query = f"EXPLAIN {query}"
+                    cur.execute(explain_query)
+                    cur.fetchall()
+                    valid = True
+                    error = None
+                except psycopg2.Error as e:
+                    valid = False
+                    error = str(e)
+        
+        return {
+            "valid": valid,
+            "safe": is_safe,
+            "dangerous_keywords_found": not is_safe,
+            "error": error,
+            "is_read_only": query_upper.startswith("SELECT")
+        }
+    except Exception as e:
+        return {"valid": False, "error": str(e), "safe": False}
+
+
 
 
 
