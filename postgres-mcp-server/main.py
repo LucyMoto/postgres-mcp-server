@@ -349,6 +349,33 @@ async def estimate_query_cost(query: str) -> Dict:
     except Exception as e:
         return {"valid": False, "error": str(e)}
     
+@mcp.tool()
+async def analyze_query_performance(query: str) -> Dict:
+    """Return structured query performance data from EXPLAIN ANALYZE"""
+    try:
+        with psycopg2.connect(**DB_CONFIG) as conn:
+            with conn.cursor() as cur:
+                # Use EXPLAIN ANALYZE to get actual execution stats
+                explain_query = f"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {query}"
+                cur.execute(explain_query)
+                explain_json = cur.fetchone()[0]
+        
+        # Extract key metrics from first plan node
+        plan = explain_json[0]["Plan"]
+        
+        return {
+            "valid": True,
+            "actual_rows": plan.get("Actual Rows"),
+            "actual_time_ms": round(plan.get("Actual Total Time", 0), 2),
+            "node_type": plan.get("Node Type"),
+            "startup_cost": plan.get("Startup Cost"),
+            "total_cost": plan.get("Total Cost"),
+            "estimated_rows": plan.get("Plans Rows"),
+            "index_used": "Index" in plan.get("Node Type", ""),
+            "full_plan": explain_json[0] if len(explain_json) > 0 else None
+        }
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
 
 
 
