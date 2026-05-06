@@ -65,6 +65,9 @@ Press `Ctrl+C` to stop. No errors = working correctly.
 ## Available Tools
 
 **`get_schema()`** - Get database schema
+**`execute_sql()`** - Execute SQL
+**`list_tables()`** - List table names in database
+
 
 ## Connect to Cursor
 
