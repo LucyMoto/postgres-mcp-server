@@ -25,3 +25,6 @@ poetry.lock
 # OS
 .DS_Store
 Thumbs.db
+
+# Screenshots
+Screenshots/
