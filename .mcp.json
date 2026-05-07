@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "${workspaceFolder}\\postgres-mcp-server\\main.py"
+      ]
+    }
+  }
+}

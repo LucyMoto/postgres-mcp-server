@@ -36,3 +36,7 @@ Screenshots/
 # VSCode local settings
 .vscode/settings.local.json
 .vscode/*.local.json
+
+# Claude
+.claude/settings.local.json
+.claude/
